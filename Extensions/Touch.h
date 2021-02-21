@@ -10,7 +10,7 @@
   void     convertRawXY(uint16_t *x, uint16_t *y);
            // Get the screen touch coordinates, returns true if screen has been touched
            // if the touch cordinates are off screen then x and y are not updated
-  uint8_t  getTouch(uint16_t *x, uint16_t *y, uint16_t threshold = 600);
+  uint8_t  getTouch(uint16_t *x, uint16_t *y, uint16_t threshold = 500); //CL200930: changed from 600 to 500
 
            // Run screen calibration and test, report calibration values to the serial port
   void     calibrateTouch(uint16_t *data, uint32_t color_fg, uint32_t color_bg, uint8_t size);
