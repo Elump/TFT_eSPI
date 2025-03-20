@@ -43,7 +43,7 @@ inline void TFT_eSPI::end_touch_read_write(void){
   #else
     spi.setFrequency(SPI_FREQUENCY);
   #endif
-  //SET_BUS_WRITE_MODE;
+  //SET_BUS_WRITE_MODE;  //CL200930: keep de-activated this line
 }
 
 /***************************************************************************************
@@ -126,8 +126,8 @@ uint8_t TFT_eSPI::validTouch(uint16_t *x, uint16_t *y, uint16_t threshold){
   uint16_t x_tmp, y_tmp, x_tmp2, y_tmp2;
 
   // Wait until pressure stops increasing to debounce pressure
-  uint16_t z1 = 1;
-  uint16_t z2 = 0;
+  uint16_t z1 = 1;  //CL200930: actual pressure
+  uint16_t z2 = 0;  //CL200930: last pressure
   while (z1 > z2)
   {
     z2 = z1;
@@ -156,8 +156,9 @@ uint8_t TFT_eSPI::validTouch(uint16_t *x, uint16_t *y, uint16_t threshold){
   if (abs(x_tmp - x_tmp2) > _RAWERR) return false;
   if (abs(y_tmp - y_tmp2) > _RAWERR) return false;
   
-  *x = x_tmp;
-  *y = y_tmp;
+  // CL200930: avarage of two samples
+  *x = (x_tmp+x_tmp2)>>1;
+  *y = (y_tmp+y_tmp2)>>1;
   
   return true;
 }
@@ -228,51 +229,78 @@ void TFT_eSPI::convertRawXY(uint16_t *x, uint16_t *y)
 void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t color_bg, uint8_t size){
   int16_t values[] = {0,0,0,0,0,0,0,0};
   uint16_t x_tmp, y_tmp;
+  uint16_t x_offset, y_offset;  //CL200930; added
 
 
+  for(uint8_t i = 0; i<=4; i++){
+    //Clear all 4 arrow areas
+	  fillRect(size, size, size+1, size+1, color_bg);				    			         //up left
+    fillRect(size, _height-size-size, size+1, size+1, color_bg);				     //bot left
+    fillRect(_width-size-size, size, size+1, size+1, color_bg);					     //up right
+    fillRect(_width-size-size, _height-size-size, size+1, size+1, color_bg); //bot right
 
-  for(uint8_t i = 0; i<4; i++){
-    fillRect(0, 0, size+1, size+1, color_bg);
-    fillRect(0, _height-size-1, size+1, size+1, color_bg);
-    fillRect(_width-size-1, 0, size+1, size+1, color_bg);
-    fillRect(_width-size-1, _height-size-1, size+1, size+1, color_bg);
-
-    if (i == 5) break; // used to clear the arrows
+    if (i == 4) break; // used to clear the arrows
     
     switch (i) {
       case 0: // up left
-        drawLine(0, 0, 0, size, color_fg);
-        drawLine(0, 0, size, 0, color_fg);
-        drawLine(0, 0, size , size, color_fg);
+        //CL: alternativ arrow not target cross 
+        //drawLine(0, 0, 0, size, color_fg);
+        //drawLine(0, 0, size, 0, color_fg);
+        //drawLine(0, 0, size , size, color_fg);
+        
+        //offset from corner
+        x_offset=size;
+        y_offset=size;
         break;
       case 1: // bot left
-        drawLine(0, _height-size-1, 0, _height-1, color_fg);
-        drawLine(0, _height-1, size, _height-1, color_fg);
-        drawLine(size, _height-size-1, 0, _height-1 , color_fg);
+        //CL: alternativ arrow not target cross 
+        //drawLine(0, _height-size-1, 0, _height-1, color_fg);
+        //drawLine(0, _height-1, size, _height-1, color_fg);
+        //drawLine(size, _height-size-1, 0, _height-1 , color_fg);
+        
+        //offset from corner
+        x_offset=size;
+        y_offset=_height-size-size;
         break;
       case 2: // up right
-        drawLine(_width-size-1, 0, _width-1, 0, color_fg);
-        drawLine(_width-size-1, size, _width-1, 0, color_fg);
-        drawLine(_width-1, size, _width-1, 0, color_fg);
+        //CL: alternativ arrow not target cross 
+        //drawLine(_width-size-1, 0, _width-1, 0, color_fg);
+        //drawLine(_width-size-1, size, _width-1, 0, color_fg);
+        //drawLine(_width-1, size, _width-1, 0, color_fg);
+        
+        //offset from corner
+        x_offset=_width-size-size;
+        y_offset=size;
         break;
       case 3: // bot right
-        drawLine(_width-size-1, _height-size-1, _width-1, _height-1, color_fg);
-        drawLine(_width-1, _height-1-size, _width-1, _height-1, color_fg);
-        drawLine(_width-1-size, _height-1, _width-1, _height-1, color_fg);
+        //CL: alternativ arrow not target cross 
+        //drawLine(_width-size-1, _height-size-1, _width-1, _height-1, color_fg);
+        //drawLine(_width-1, _height-1-size, _width-1, _height-1, color_fg);
+        //drawLine(_width-1-size, _height-1, _width-1, _height-1, color_fg);
+        
+        //offset from corner
+        x_offset=_width-size-size;
+        y_offset=_height-size-size;
         break;
       }
+    
+    //CL: target cross with offset from corner
+    drawLine(size/2+x_offset, y_offset, size/2+x_offset, size+y_offset, color_fg);  //vertical line
+    drawLine(x_offset, size/2+y_offset, size+x_offset, size/2+y_offset, color_fg);  //horizontal line
+    drawCircle(size/2+x_offset, size/2+y_offset, size/4+size/8, color_fg);  //circle
 
     // user has to get the chance to release
     if(i>0) delay(1000);
 
     for(uint8_t j= 0; j<8; j++){
-      // Use a lower detect threshold as corners tend to be less sensitive
-      while(!validTouch(&x_tmp, &y_tmp, Z_THRESHOLD/2));
+      //CL: Use a lower detect threshold ((Z_THRESHOLD/2) if sensing in corners tend to be less sensitive
+      while(!validTouch(&x_tmp, &y_tmp, Z_THRESHOLD));
       values[i*2  ] += x_tmp;
       values[i*2+1] += y_tmp;
       }
     values[i*2  ] /= 8;
     values[i*2+1] /= 8;
+    //CL: offset still needs compensation
   }
 
 
@@ -307,6 +335,24 @@ void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t 
     touchCalibration_y1 = values[0];
     touchCalibration_invert_y = true;
   }
+  
+  // CL: compensat for offset od corner
+  // real x0  measured x0      measured x1  real x1
+  // |          |                    |          |
+  //(size+size/2)                     (size+size/2)
+  // |                                          |
+  //               _width
+  //            |                    |       
+  //              _width - 3* size
+  // measured x1 - measured x0 /_width - 3* size = touch_resolution per pixel
+  // offset = (size+size/2) * touch_resolution per pixel
+  // *8 for better resulution
+  x_offset = (touchCalibration_x1*8 - touchCalibration_x0*8)/(_width-3*size)*size*3/2;
+  y_offset = (touchCalibration_y1*8 - touchCalibration_y0*8)/(_height-3*size)*size*3/2; 
+  touchCalibration_x0 -= (x_offset/8);
+  touchCalibration_y0 -= (y_offset/8);
+  touchCalibration_x1 += (x_offset/8);
+  touchCalibration_y1 += (y_offset/8);
 
   // pre calculate
   touchCalibration_x1 -= touchCalibration_x0;

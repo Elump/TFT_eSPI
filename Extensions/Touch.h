@@ -15,8 +15,7 @@
            // The threshold value is optional, this must be higher than the bias level for z (pressure)
            // reported by Test_Touch_Controller when the screen is NOT touched. When touched the z value
            // must be higher than the threshold for a touch to be detected.
-  uint8_t  getTouch(uint16_t *x, uint16_t *y, uint16_t threshold = 600);
-
+  uint8_t  getTouch(uint16_t *x, uint16_t *y, uint16_t threshold = 500); //CL200930: changed from 600 to 500
            // Run screen calibration and test, report calibration values to the serial port
   void     calibrateTouch(uint16_t *data, uint32_t color_fg, uint32_t color_bg, uint8_t size);
            // Set the screen calibration values

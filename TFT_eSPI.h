@@ -302,17 +302,33 @@ const PROGMEM fontinfo fontdata [] = {
 **                         Section 6: Colour enumeration
 ***************************************************************************************/
 // Default color definitions
+// CL: check http://www.barth-dev.de/online/rgb565-color-picker/ for more
 #define TFT_BLACK       0x0000      /*   0,   0,   0 */
 #define TFT_NAVY        0x000F      /*   0,   0, 128 */
-#define TFT_DARKGREEN   0x03E0      /*   0, 128,   0 */
-#define TFT_DARKCYAN    0x03EF      /*   0, 128, 128 */
+#define TFT_DarkBLUE    0x298B
+#define TFT_DarkCYAN    0x03EF      /*   0, 128, 128 */
+#define TFT_DarkGREEN   0x03E0      /*   0, 128,   0 */
+#define TFT_DarkGREY    0x7BEF      /* 128, 128, 128 */
+#define TFT_DarkMAGENTA 0x612F
+#define TFT_DarkORANGE  0xA347
+#define TFT_DarkPINK    0xA1EF
+#define TFT_DarkRED     0x8986
+#define TFT_DarkerGREY  0x39C7
+#define TFT_DarkTURQUOISE   0x3491
+#define TFT_DarkYELLOW  0x83E5
 #define TFT_MAROON      0x7800      /* 128,   0,   0 */
 #define TFT_PURPLE      0x780F      /* 128,   0, 128 */
 #define TFT_OLIVE       0x7BE0      /* 128, 128,   0 */
 #define TFT_LIGHTGREY   0xD69A      /* 211, 211, 211 */
+#define TFT_LIGHTGREEN  0xA7D5
 #define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
 #define TFT_BLUE        0x001F      /*   0,   0, 255 */
 #define TFT_GREEN       0x07E0      /*   0, 255,   0 */
+#define TFT_GREY        0xE73C
+#define TFT_L_BLUEGREY      0xBDF9
+#define TFT_M_BLUEGREY      0x7BB2
+#define TFT_D_BLUEGREY      0x3188
+#define TFT_M_GREENGREY     0x73EE
 #define TFT_CYAN        0x07FF      /*   0, 255, 255 */
 #define TFT_RED         0xF800      /* 255,   0,   0 */
 #define TFT_MAGENTA     0xF81F      /* 255,   0, 255 */
@@ -325,7 +341,9 @@ const PROGMEM fontinfo fontdata [] = {
 #define TFT_GOLD        0xFEA0      /* 255, 215,   0 */
 #define TFT_SILVER      0xC618      /* 192, 192, 192 */
 #define TFT_SKYBLUE     0x867D      /* 135, 206, 235 */
+#define TFT_TURQUOISE   0x0F1B
 #define TFT_VIOLET      0x915C      /* 180,  46, 226 */
+#define TFT_SMOPS       0x37ED
 
 // Next is a special 16-bit colour value that encodes to 8 bits
 // and will then decode back to the same 16-bit value.
@@ -342,12 +360,12 @@ static const uint16_t default_4bit_palette[] PROGMEM = {
   TFT_GREEN,    //  5  |
   TFT_BLUE,     //  6  |
   TFT_PURPLE,   //  7  |
-  TFT_DARKGREY, //  8  |
+  TFT_DarkGREY, //  8  |
   TFT_WHITE,    //  9  v
   TFT_CYAN,     // 10  Blue+green mix
   TFT_MAGENTA,  // 11  Blue+red mix
   TFT_MAROON,   // 12  Darker red colour
-  TFT_DARKGREEN,// 13  Darker green colour
+  TFT_DarkGREEN,// 13  Darker green colour
   TFT_NAVY,     // 14  Darker blue colour
   TFT_PINK      // 15
 };
@@ -515,6 +533,7 @@ class TFT_eSPI : public Print { friend class TFT_eSprite; // Sprite class has ac
   // Graphics drawing
   void     fillScreen(uint32_t color),
            drawRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color),
+           //fillRect(int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color),
            drawRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t color),
            fillRoundRect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t radius, uint32_t color);
 
