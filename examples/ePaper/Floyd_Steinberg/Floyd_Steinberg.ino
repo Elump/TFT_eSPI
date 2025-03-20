@@ -106,7 +106,7 @@ void loop() {
 
   frame.fillSprite(PAPER);
 
-  // Draw 8 bit grey-scale bitmap using Floyd-Steinberg dithering at x,y
+  // Draw 8-bit grey-scale bitmap using Floyd-Steinberg dithering at x,y
   //           /File name      x  y
   //drawFSBmp("/TestCard.bmp", 0, 0); // 176 x 264 pixels
 
@@ -118,7 +118,7 @@ void loop() {
 
   frame.fillSprite(PAPER);  // Fill frame with white
 
-  // Draw circle in frame buffer (x, y, r, color) in center of screen
+  // Draw circle in frame buffer (x, y, r, color) in centre of screen
   frame.drawCircle(frame.width()/2, frame.height()/2, frame.width()/6, INK);
 
   // Draw diagonal lines

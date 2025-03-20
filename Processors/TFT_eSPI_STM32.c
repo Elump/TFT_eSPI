@@ -24,9 +24,6 @@
   DMA_HandleTypeDef dmaHal;
 #endif
 
-  // Buffer for SPI transmit byte padding and byte order manipulation
-  uint8_t   spiBuffer[8];
-
 ////////////////////////////////////////////////////////////////////////////////////////
 #if defined (TFT_SDA_READ) && !defined (TFT_PARALLEL_8_BIT)
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -76,7 +73,7 @@ void TFT_eSPI::end_SDA_Read(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
-#if defined (TFT_PARALLEL_8_BIT) // Code for STM32 8 bit parallel
+#if defined (TFT_PARALLEL_8_BIT) // Code for STM32 8-bit parallel
 ////////////////////////////////////////////////////////////////////////////////////////
 
 /***************************************************************************************
@@ -84,7 +81,7 @@ void TFT_eSPI::end_SDA_Read(void)
 ** Description:             Write a block of pixels of the same colour
 ***************************************************************************************/
 void TFT_eSPI::pushBlock(uint16_t color, uint32_t len){
-    // Loop unrolling improves speed dramtically graphics test  0.634s => 0.374s
+    // Loop unrolling improves speed dramatically graphics test  0.634s => 0.374s
     while (len>31) {
     #if !defined (SSD1963_DRIVER)
       // 32D macro writes 16 bits twice
@@ -165,6 +162,22 @@ void TFT_eSPI::busDir(uint32_t mask, uint8_t mode)
     if (mode == OUTPUT) GPIOB->MODER = (GPIOB->MODER & 0xFFFF0000) | 0x00005555;
     else GPIOB->MODER &= 0xFFFF0000;
   #endif
+#elif defined (STM_PORTC_DATA_BUS)
+  #if defined (STM32F1xx)
+    if (mode == OUTPUT) GPIOC->CRL = 0x33333333;
+    else GPIOC->CRL = 0x88888888;
+  #else
+    if (mode == OUTPUT) GPIOC->MODER = (GPIOC->MODER & 0xFFFF0000) | 0x00005555;
+    else GPIOC->MODER &= 0xFFFF0000;
+  #endif
+#elif defined (STM_PORTD_DATA_BUS)
+  #if defined (STM32F1xx)
+    if (mode == OUTPUT) GPIOD->CRL = 0x33333333;
+    else GPIOD->CRL = 0x88888888;
+  #else
+    if (mode == OUTPUT) GPIOD->MODER = (GPIOD->MODER & 0xFFFF0000) | 0x00005555;
+    else GPIOD->MODER &= 0xFFFF0000;
+  #endif
 #else
   if (mode == OUTPUT) {
     LL_GPIO_SetPinMode(D0_PIN_PORT, D0_PIN_MASK, LL_GPIO_MODE_OUTPUT);
@@ -222,6 +235,16 @@ uint8_t TFT_eSPI::readByte(void)
   b = GPIOB->IDR;
   b = GPIOB->IDR;
   b = (GPIOB->IDR) & 0xFF;
+#elif defined (STM_PORTC_DATA_BUS)
+  b = GPIOC->IDR;
+  b = GPIOC->IDR;
+  b = GPIOC->IDR;
+  b = (GPIOC->IDR) & 0xFF;
+#elif defined (STM_PORTD_DATA_BUS)
+  b = GPIOD->IDR;
+  b = GPIOD->IDR;
+  b = GPIOD->IDR;
+  b = (GPIOD->IDR) & 0xFF;
 #else
   b  = RD_TFT_D0 | RD_TFT_D0 | RD_TFT_D0 | RD_TFT_D0; //Delay for bits to settle
 
@@ -260,7 +283,7 @@ void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
-#elif defined (SPI_18BIT_DRIVER) // SPI 18 bit colour
+#elif defined (SPI_18BIT_DRIVER) // SPI 18-bit colour
 ////////////////////////////////////////////////////////////////////////////////////////
 
 /***************************************************************************************
@@ -270,34 +293,19 @@ void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)
 #define BUF_SIZE 240*3
 void TFT_eSPI::pushBlock(uint16_t color, uint32_t len)
 {
-  uint8_t col[BUF_SIZE];
+  //uint8_t col[BUF_SIZE];
   // Always using swapped bytes is a peculiarity of this function...
   //color = color>>8 | color<<8;
   uint8_t r = (color & 0xF800)>>8; // Red
   uint8_t g = (color & 0x07E0)>>3; // Green
   uint8_t b = (color & 0x001F)<<3; // Blue
 
-  if  (len<BUF_SIZE/3) {
-    for (uint32_t i = 0; i < len*3; i++) {
-      col[i]   = r;
-      col[++i] = g;
-      col[++i] = b;
-    }
-    HAL_SPI_Transmit(&spiHal, col, len*3, HAL_MAX_DELAY);
-    return;
+  while(len--) {
+    TX_FIFO = (r);
+    TX_FIFO = (g);
+    TX_FIFO = (b);
   }
-
-  for (uint32_t i = 0; i < BUF_SIZE; i++) {
-      col[i]   = r;
-      col[++i] = g;
-      col[++i] = b;
-  }
-  do {
-    HAL_SPI_Transmit(&spiHal, col, BUF_SIZE, HAL_MAX_DELAY);
-    len -= BUF_SIZE/3;
-  } while ( len>=BUF_SIZE/3 ) ;
-  // Send remaining pixels
-  if (len) HAL_SPI_Transmit(&spiHal, col, len*3, HAL_MAX_DELAY); //*/
+   SPI_BUSY_CHECK;
 }
 /***************************************************************************************
 ** Function name:           pushPixels - for STM32 and 3 byte RGB display
@@ -307,30 +315,29 @@ void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)
 {
   uint16_t *data = (uint16_t*)data_in;
 
-  if(_swapBytes) {
+  if(!_swapBytes) {
     while ( len-- ) {
       // Split out the colours
-      spiBuffer[0] = (*data & 0xF8); // Red
-      spiBuffer[1] = (*data & 0xE000)>>11 | (*data & 0x07)<<5; // Green
-      spiBuffer[2] = (*data & 0x1F00)>>5; // Blue
+      TX_FIFO = (*data & 0xF8); // Red
+      TX_FIFO = (*data & 0xE000)>>11 | (*data & 0x07)<<5; // Green
+      TX_FIFO = (*data & 0x1F00)>>5; // Blue
       data++;
-      HAL_SPI_Transmit(&spiHal, spiBuffer, 3, HAL_MAX_DELAY);
     }
   }
   else {
     while ( len-- ) {
       // Split out the colours
-      spiBuffer[0] = (*data & 0xF800)>>8; // Red
-      spiBuffer[1] = (*data & 0x07E0)>>3; // Green
-      spiBuffer[2] = (*data & 0x001F)<<3; // Blue
+      TX_FIFO = (*data & 0xF800)>>8; // Red
+      TX_FIFO = (*data & 0x07E0)>>3; // Green
+      TX_FIFO = (*data & 0x001F)<<3; // Blue
       data++;
-      HAL_SPI_Transmit(&spiHal, spiBuffer, 3, HAL_MAX_DELAY);
     }
   }
+  SPI_BUSY_CHECK;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
-#else //                   Standard SPI 16 bit colour TFT                                                 All Tested
+#else //                   Standard SPI 16-bit colour TFT                                                 All Tested
 ////////////////////////////////////////////////////////////////////////////////////////
 
 /***************************************************************************************
@@ -338,6 +345,7 @@ void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)
 ** Description:             Write a block of pixels of the same colour
 ***************************************************************************************/
 #define BUF_SIZE 480
+/*
 void TFT_eSPI::pushBlock(uint16_t color, uint32_t len)
 {
   uint16_t col[BUF_SIZE];
@@ -355,7 +363,47 @@ void TFT_eSPI::pushBlock(uint16_t color, uint32_t len)
     len -= BUF_SIZE;
   } while ( len>=BUF_SIZE ) ;
   // Send remaining pixels
-  if (len) HAL_SPI_Transmit(&spiHal, (uint8_t*)col, len<<1, HAL_MAX_DELAY); //*/
+  if (len) HAL_SPI_Transmit(&spiHal, (uint8_t*)col, len<<1, HAL_MAX_DELAY);
+}
+ //*/
+void TFT_eSPI::pushBlock(uint16_t color, uint32_t len){
+    // Loop unrolling improves speed dramatically graphics test  0.634s => 0.374s
+    while (len>31) {
+    #if !defined (SSD1963_DRIVER)
+      // 32D macro writes 16 bits twice
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+    #else
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+    #endif
+      len-=32;
+    }
+
+    while (len>7) {
+    #if !defined (SSD1963_DRIVER)
+      tft_Write_32D(color); tft_Write_32D(color);
+      tft_Write_32D(color); tft_Write_32D(color);
+    #else
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+      tft_Write_16(color); tft_Write_16(color); tft_Write_16(color); tft_Write_16(color);
+    #endif
+      len-=8;
+    }
+
+  while (len--) {tft_Write_16(color);}
 }
 
 
@@ -366,26 +414,23 @@ void TFT_eSPI::pushBlock(uint16_t color, uint32_t len)
 void TFT_eSPI::pushPixels(const void* data_in, uint32_t len)
 {
   uint16_t *data = (uint16_t*)data_in;
+
   if(_swapBytes) {
-    uint16_t col[BUF_SIZE]; // Buffer for swapped bytes
-    while ( len>=BUF_SIZE ) {
-      for (uint32_t i = 0; i < BUF_SIZE; i++) { col[i] = (*data>>8) | (*data<<8); data++; }
-      HAL_SPI_Transmit(&spiHal, (uint8_t*)col, BUF_SIZE<<1, HAL_MAX_DELAY);
-      len -= BUF_SIZE;
+    while ( len-- ) {
+      TX_FIFO = (uint8_t)(*data>>8);
+      TX_FIFO = (uint8_t)(*data);
+      data++;
     }
-    for (uint32_t i = 0; i < len; i++) { col[i] = (*data>>8) | (*data<<8); data++; }
-    HAL_SPI_Transmit(&spiHal, (uint8_t*)col, len<<1, HAL_MAX_DELAY);
   }
   else {
-  // HAL byte count for transmit is only 16 bits maximum so to avoid this constraint
-  // transfers of small blocks are performed until HAL capacity is reached.
-    while(len>0x7FFF) { // Transfer 16 bit pixels in blocks if len*2 over 65534 bytes
-      HAL_SPI_Transmit(&spiHal, (uint8_t*)data, 0x800<<1, HAL_MAX_DELAY);
-      len -= 0x800; data+= 0x800; // Arbitrarily use 2KByte blocks
+    while ( len-- ) {
+      // Split out the colours
+      TX_FIFO = (uint8_t)(*data);
+      TX_FIFO = (uint8_t)(*data>>8);
+      data++;
     }
-    // Send remaining pixels (max 65534 bytes)
-    HAL_SPI_Transmit(&spiHal, (uint8_t*)data, len<<1, HAL_MAX_DELAY);
   }
+  SPI_BUSY_CHECK;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -501,7 +546,7 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
   // small transfers are performed using a blocking call until DMA capacity is reached.
   // User sketch can prevent blocking by managing pixel count and splitting into blocks
   // of 32767 pixels maximum. (equivalent to an area of ~320 x 100 pixels)
-  while(len>0x7FFF) { // Transfer 16 bit pixels in blocks if len*2 over 65534 bytes
+  while(len>0x7FFF) { // Transfer 16-bit pixels in blocks if len*2 over 65534 bytes
     HAL_SPI_Transmit(&spiHal, (uint8_t*)buffer, 0x800<<1, HAL_MAX_DELAY);
     len -= 0x800; buffer+= 0x800; // Arbitrarily send 1K pixel blocks (2Kbytes)
   }
@@ -525,6 +570,9 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
   #elif (TFT_SPI_PORT == 2)
     extern "C" void DMA1_Stream4_IRQHandler();
     void DMA1_Stream4_IRQHandler(void)
+  #elif (TFT_SPI_PORT == 3)
+    extern "C" void DMA1_Stream5_IRQHandler();
+    void DMA1_Stream5_IRQHandler(void)
   #endif
   {
     // Call the default end of buffer handler
@@ -546,8 +594,12 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     __HAL_RCC_DMA2_CLK_ENABLE();                           // Enable DMA2 clock
     dmaHal.Init.Channel = DMA_CHANNEL_3;                   // DMA channel 3 is for SPI1 TX
   #elif (TFT_SPI_PORT == 2)
-    __HAL_RCC_DMA1_CLK_ENABLE();                           // Enable DMA2 clock
+    __HAL_RCC_DMA1_CLK_ENABLE();                           // Enable DMA1 clock
     dmaHal.Init.Channel = DMA_CHANNEL_0;                   // DMA channel 0 is for SPI2 TX
+  #elif (TFT_SPI_PORT == 3)
+    __HAL_RCC_DMA1_CLK_ENABLE();                           // Enable DMA1 clock
+    dmaHal.Init.Channel = DMA_CHANNEL_0;                   // DMA channel 0 is for SPI3 TX
+  
   #endif
 
   dmaHal.Init.Mode =  DMA_NORMAL; //DMA_CIRCULAR;   //   // Normal = send buffer once
@@ -565,6 +617,8 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);  // Enable DMA end interrupt handler
   #elif (TFT_SPI_PORT == 2)
     HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);  // Enable DMA end interrupt handler
+  #elif (TFT_SPI_PORT == 3)
+    HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
   #endif
 
   __HAL_LINKDMA(&spiHal, hdmatx, dmaHal);   // Attach DMA engine to SPI peripheral

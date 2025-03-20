@@ -11,7 +11,7 @@
 // boards and WILL NOT work on normal Arduino or other boards!
 //
 // SEE FILE "config.h" FOR MOST CONFIGURATION (graphics, pins, display type,
-// etc).  Probably won't need to edit THIS file unless you're doing some
+// etc.).  Probably won't need to edit THIS file unless you're doing some
 // extremely custom modifications.
 //
 // Adafruit invests time and resources providing this open source code,
@@ -91,7 +91,7 @@ void updateEye (void)
 
 // EYE-RENDERING FUNCTION --------------------------------------------------
 void drawEye( // Renders one eye.  Inputs must be pre-clipped & valid.
-  // Use native 32 bit variables where possible as this is 10% faster!
+  // Use native 32-bit variables where possible as this is 10% faster!
   uint8_t  e,       // Eye array index; 0 or 1 for left/right
   uint32_t iScale,  // Scale factor for iris
   uint32_t  scleraX, // First pixel X offset into sclera image
@@ -237,7 +237,7 @@ void frame(uint16_t iScale) // Iris scale (0-1023)
   // Periodically initiates motion to a new random point, random speed,
   // holds there for random period until next motion.
 
-  static boolean  eyeInMotion      = false;
+  static bool  eyeInMotion      = false;
   static int16_t  eyeOldX = 512, eyeOldY = 512, eyeNewX = 512, eyeNewY = 512;
   static uint32_t eyeMoveStartTime = 0L;
   static int32_t  eyeMoveDuration  = 0L;

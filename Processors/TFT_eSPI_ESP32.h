@@ -11,17 +11,71 @@
 // Include processor specific header
 #include "soc/spi_reg.h"
 #include "driver/spi_master.h"
+#include "hal/gpio_ll.h"
+
+#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32)
+  #define CONFIG_IDF_TARGET_ESP32
+#endif
+
+// Fix IDF problems with ESP32C3
+#if CONFIG_IDF_TARGET_ESP32C3
+  // Fix ESP32C3 IDF bug for missing definition
+  #ifndef REG_SPI_BASE
+    #define REG_SPI_BASE(i)     (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
+  #endif
+
+  // Fix ESP32C3 IDF bug for name change
+  #ifndef SPI_MOSI_DLEN_REG
+    #define SPI_MOSI_DLEN_REG(x) SPI_MS_DLEN_REG(x)
+  #endif
+
+  // Fix ESP32C3 specific register reference
+  #define out_w1tc out_w1tc.val
+  #define out_w1ts out_w1ts.val
+#endif
 
 // SUPPORT_TRANSACTIONS is mandatory for ESP32 so the hal mutex is toggled
 #if !defined (SUPPORT_TRANSACTIONS)
   #define SUPPORT_TRANSACTIONS
 #endif
 
+/*
+ESP32:
+FSPI not defined
+HSPI = 2, uses SPI2
+VSPI = 3, uses SPI3
+
+ESP32-S2:
+FSPI = 1, uses SPI2
+HSPI = 2, uses SPI3
+VSPI not defined
+
+ESP32 C3:
+FSPI = 0, uses SPI2 ???? To be checked
+HSPI = 1, uses SPI3 ???? To be checked
+VSPI not defined
+
+For ESP32/S2/C3:
+SPI1_HOST = 0
+SPI2_HOST = 1
+SPI3_HOST = 2
+*/
+
 // ESP32 specific SPI port selection
 #ifdef USE_HSPI_PORT
-  #define SPI_PORT HSPI
+  #ifdef CONFIG_IDF_TARGET_ESP32
+    #define SPI_PORT HSPI  //HSPI is port 2 on ESP32
+  #else
+    #define SPI_PORT 3     //HSPI is port 3 on ESP32 S2
+  #endif
+#elif defined(USE_FSPI_PORT)
+    #define SPI_PORT 2 //FSPI(ESP32 S2)
 #else
-  #define SPI_PORT VSPI
+  #ifdef CONFIG_IDF_TARGET_ESP32
+    #define SPI_PORT VSPI
+  #else
+    #define SPI_PORT 2 //FSPI(ESP32 S2)
+  #endif
 #endif
 
 #ifdef RPI_DISPLAY_TYPE
@@ -33,14 +87,14 @@
 // Initialise processor specific SPI functions, used by init()
 #define INIT_TFT_DATA_BUS // Not used
 
-// Define a generic flag for 8 bit parallel
+// Define a generic flag for 8-bit parallel
 #if defined (ESP32_PARALLEL) // Specific to ESP32 for backwards compatibility
   #if !defined (TFT_PARALLEL_8_BIT)
     #define TFT_PARALLEL_8_BIT // Generic parallel flag
   #endif
 #endif
 
-// Ensure ESP32 specific flag is defined for 8 bit parallel
+// Ensure ESP32 specific flag is defined for 8-bit parallel
 #if defined (TFT_PARALLEL_8_BIT)
   #if !defined (ESP32_PARALLEL)
     #define ESP32_PARALLEL
@@ -71,6 +125,12 @@
   #define DMA_BUSY_CHECK
 #endif
 
+#if defined(TFT_PARALLEL_8_BIT)
+  #define SPI_BUSY_CHECK
+#else
+  #define SPI_BUSY_CHECK while (*_spi_cmd&SPI_USR)
+#endif
+
 // If smooth font is used then it is likely SPIFFS will be needed
 #ifdef SMOOTH_FONT
   // Call up the SPIFFS (SPI FLASH Filing System) for the anti-aliased fonts
@@ -79,6 +139,7 @@
   #include "SPIFFS.h" // ESP32 only
   #define FONT_FS_AVAILABLE
 #endif
+
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Define the DC (TFT Data/Command or Register Select (RS))pin drive code
@@ -92,6 +153,9 @@
     #if (TFT_DC >= 0) &&  (TFT_DC < 32)
       #define DC_C GPIO.out_w1tc = (1 << TFT_DC)
       #define DC_D GPIO.out_w1ts = (1 << TFT_DC)
+    #elif (TFT_DC >= 32)
+      #define DC_C GPIO.out1_w1tc.val = (1 << (TFT_DC- 32))
+      #define DC_D GPIO.out1_w1ts.val = (1 << (TFT_DC- 32))
     #else
       #define DC_C
       #define DC_D
@@ -217,11 +281,7 @@
   #ifdef USE_HSPI_PORT
 
     #ifndef TFT_MISO
-      #define TFT_MISO 12
-    #endif
-    #if (TFT_MISO == -1)
-      #undef TFT_MISO
-      #define TFT_MISO 12
+      #define TFT_MISO -1
     #endif
 
     #ifndef TFT_MOSI
@@ -243,11 +303,7 @@
   #else // VSPI port
 
     #ifndef TFT_MISO
-      #define TFT_MISO 19
-    #endif
-    #if (TFT_MISO == -1)
-      #undef TFT_MISO
-      #define TFT_MISO 19
+      #define TFT_MISO -1
     #endif
 
     #ifndef TFT_MOSI
@@ -266,6 +322,13 @@
       #define TFT_SCLK 18
     #endif
 
+    #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+      #if (TFT_MISO == -1)
+        #undef TFT_MISO
+        #define TFT_MISO TFT_MOSI
+      #endif
+    #endif
+
   #endif
 
 #endif
@@ -277,7 +340,7 @@
 
   // Create a bit set lookup table for data bus - wastes 1kbyte of RAM but speeds things up dramatically
   // can then use e.g. GPIO.out_w1ts = set_mask(0xFF); to set data bus to 0xFF
-  #define CONSTRUCTOR_INIT_TFT_DATA_BUS            \
+  #define PARALLEL_INIT_TFT_DATA_BUS               \
   for (int32_t c = 0; c<256; c++)                  \
   {                                                \
     xset_mask[c] = 0;                              \
@@ -292,16 +355,16 @@
   }                                                \
 
   // Mask for the 8 data bits to set pin directions
-  #define dir_mask ((1 << TFT_D0) | (1 << TFT_D1) | (1 << TFT_D2) | (1 << TFT_D3) | (1 << TFT_D4) | (1 << TFT_D5) | (1 << TFT_D6) | (1 << TFT_D7))
+  #define GPIO_DIR_MASK ((1 << TFT_D0) | (1 << TFT_D1) | (1 << TFT_D2) | (1 << TFT_D3) | (1 << TFT_D4) | (1 << TFT_D5) | (1 << TFT_D6) | (1 << TFT_D7))
 
   #if (TFT_WR >= 32)
     // Data bits and the write line are cleared sequentially
-    #define clr_mask (dir_mask); WR_L
+    #define GPIO_OUT_CLR_MASK (GPIO_DIR_MASK); WR_L
   #elif (TFT_WR >= 0)
     // Data bits and the write line are cleared to 0 in one step (1.25x faster)
-    #define clr_mask (dir_mask | (1 << TFT_WR))
+    #define GPIO_OUT_CLR_MASK (GPIO_DIR_MASK | (1 << TFT_WR))
   #else
-    #define clr_mask
+    #define GPIO_OUT_CLR_MASK
   #endif
 
   // A lookup table is used to set the different bit patterns, this uses 1kByte of RAM
@@ -313,46 +376,53 @@
   //*/
 
   // Write 8 bits to TFT
-  #define tft_Write_8(C)  GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t)(C)); WR_H
+  #define tft_Write_8(C)  GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t)(C)); WR_H
 
   #if defined (SSD1963_DRIVER)
 
-    // Write 18 bit color to TFT
-    #define tft_Write_16(C) GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) (((C) & 0xF800)>> 8)); WR_H; \
-                            GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) (((C) & 0x07E0)>> 3)); WR_H; \
-                            GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) (((C) & 0x001F)<< 3)); WR_H
+    // Write 18-bit color to TFT
+    #define tft_Write_16(C) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) (((C) & 0xF800)>> 8)); WR_H; \
+                            GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) (((C) & 0x07E0)>> 3)); WR_H; \
+                            GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) (((C) & 0x001F)<< 3)); WR_H
 
-    // 18 bit color write with swapped bytes
-    #define tft_Write_16S(C) uint16_t Cswap = ((C) >>8 | (C) << 8); tft_Write_16(Cswap)
+    // 18-bit color write with swapped bytes
+    #define tft_Write_16S(C) Cswap = ((C) >>8 | (C) << 8); tft_Write_16(Cswap)
 
   #else
 
-    // Write 16 bits to TFT
-    #define tft_Write_16(C) GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
-                            GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H
+    #ifdef PSEUDO_16_BIT
+      // One write strobe for both bytes
+      #define tft_Write_16(C)  GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H
+      #define tft_Write_16S(C) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H
+    #else
+      // Write 16 bits to TFT
+      #define tft_Write_16(C) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
+                              GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H
 
-    // 16 bit write with swapped bytes
-    #define tft_Write_16S(C) GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H; \
-                             GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H
+      // 16-bit write with swapped bytes
+      #define tft_Write_16S(C) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H; \
+                               GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H
+    #endif
+
   #endif
 
   // Write 32 bits to TFT
-  #define tft_Write_32(C) GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 24)); WR_H; \
-                          GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 16)); WR_H; \
-                          GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >>  8)); WR_H; \
-                          GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >>  0)); WR_H
+  #define tft_Write_32(C) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 24)); WR_H; \
+                          GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 16)); WR_H; \
+                          GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >>  8)); WR_H; \
+                          GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >>  0)); WR_H
 
-  // Write two concatenated 16 bit values to TFT
-  #define tft_Write_32C(C,D) GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
-                             GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H; \
-                             GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((D) >> 8)); WR_H; \
-                             GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((D) >> 0)); WR_H
+  // Write two concatenated 16-bit values to TFT
+  #define tft_Write_32C(C,D) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
+                             GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H; \
+                             GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((D) >> 8)); WR_H; \
+                             GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((D) >> 0)); WR_H
 
-  // Write 16 bit value twice to TFT - used by drawPixel()
-  #define tft_Write_32D(C) GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
-                           GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H; \
-                           GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
-                           GPIO.out_w1tc = clr_mask; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H
+  // Write 16-bit value twice to TFT - used by drawPixel()
+  #define tft_Write_32D(C) GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
+                           GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H; \
+                           GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 8)); WR_H; \
+                           GPIO.out_w1tc = GPIO_OUT_CLR_MASK; GPIO.out_w1ts = set_mask((uint8_t) ((C) >> 0)); WR_H
 
    // Read pin
   #ifdef TFT_RD
@@ -368,22 +438,29 @@
       #define RD_L
       #define RD_H
     #endif
+  #else
+    #define TFT_RD -1
+    #define RD_L
+    #define RD_H
   #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Macros to write commands/pixel colour data to a SPI ILI948x TFT
 ////////////////////////////////////////////////////////////////////////////////////////
-#elif  defined (SPI_18BIT_DRIVER) // SPI 18 bit colour
+#elif  defined (SPI_18BIT_DRIVER) // SPI 18-bit colour
 
   // Write 8 bits to TFT
   #define tft_Write_8(C)   spi.transfer(C)
 
-  // Convert 16 bit colour to 18 bit and write in 3 bytes
+  // Convert 16-bit colour to 18-bit and write in 3 bytes
   #define tft_Write_16(C)  spi.transfer(((C) & 0xF800)>>8); \
                            spi.transfer(((C) & 0x07E0)>>3); \
                            spi.transfer(((C) & 0x001F)<<3)
 
-  // Convert swapped byte 16 bit colour to 18 bit and write in 3 bytes
+  // Future option for transfer without wait
+  #define tft_Write_16N(C) tft_Write_16(C)
+
+  // Convert swapped byte 16-bit colour to 18-bit and write in 3 bytes
   #define tft_Write_16S(C) spi.transfer((C) & 0xF8); \
                            spi.transfer(((C) & 0xE000)>>11 | ((C) & 0x07)<<5); \
                            spi.transfer(((C) & 0x1F00)>>5)
@@ -391,10 +468,10 @@
   // Write 32 bits to TFT
   #define tft_Write_32(C)  spi.write32(C)
 
-  // Write two concatenated 16 bit values to TFT
+  // Write two concatenated 16-bit values to TFT
   #define tft_Write_32C(C,D) spi.write32((C)<<16 | (D))
 
-  // Write 16 bit value twice to TFT
+  // Write 16-bit value twice to TFT
   #define tft_Write_32D(C)  spi.write32((C)<<16 | (C))
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -402,7 +479,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 #elif  defined (RPI_DISPLAY_TYPE)
 
-  // ESP32 low level SPI writes for 8, 16 and 32 bit values
+  // ESP32 low level SPI writes for 8, 16 and 32-bit values
   // to avoid the function call overhead
   #define TFT_WRITE_BITS(D, B) \
   WRITE_PERI_REG(SPI_MOSI_DLEN_REG(SPI_PORT), B-1); \
@@ -413,8 +490,11 @@
   // Write 8 bits
   #define tft_Write_8(C) TFT_WRITE_BITS((C)<<8, 16)
 
-  // Write 16 bits with corrected endianess for 16 bit colours
+  // Write 16 bits with corrected endianness for 16-bit colours
   #define tft_Write_16(C) TFT_WRITE_BITS((C)<<8 | (C)>>8, 16)
+
+  // Future option for transfer without wait
+  #define tft_Write_16N(C) tft_Write_16(C)
 
   // Write 16 bits
   #define tft_Write_16S(C) TFT_WRITE_BITS(C, 16)
@@ -433,8 +513,8 @@
 // Macros for all other SPI displays
 ////////////////////////////////////////////////////////////////////////////////////////
 #else
-
-  // ESP32 low level SPI writes for 8, 16 and 32 bit values
+/* Old macros
+  // ESP32 low level SPI writes for 8, 16 and 32-bit values
   // to avoid the function call overhead
   #define TFT_WRITE_BITS(D, B) \
   WRITE_PERI_REG(SPI_MOSI_DLEN_REG(SPI_PORT), B-1); \
@@ -445,8 +525,37 @@
   // Write 8 bits
   #define tft_Write_8(C) TFT_WRITE_BITS(C, 8)
 
-  // Write 16 bits with corrected endianess for 16 bit colours
+  // Write 16 bits with corrected endianness for 16-bit colours
   #define tft_Write_16(C) TFT_WRITE_BITS((C)<<8 | (C)>>8, 16)
+
+  // Write 16 bits
+  #define tft_Write_16S(C) TFT_WRITE_BITS(C, 16)
+
+  // Write 32 bits
+  #define tft_Write_32(C) TFT_WRITE_BITS(C, 32)
+
+  // Write two address coordinates
+  #define tft_Write_32C(C,D) TFT_WRITE_BITS((uint16_t)((D)<<8 | (D)>>8)<<16 | (uint16_t)((C)<<8 | (C)>>8), 32)
+
+  // Write same value twice
+  #define tft_Write_32D(C) TFT_WRITE_BITS((uint16_t)((C)<<8 | (C)>>8)<<16 | (uint16_t)((C)<<8 | (C)>>8), 32)
+//*/
+//* Replacement slimmer macros
+  #define TFT_WRITE_BITS(D, B) *_spi_mosi_dlen = B-1;    \
+                               *_spi_w = D;             \
+                               *_spi_cmd = SPI_USR;      \
+                        while (*_spi_cmd & SPI_USR);
+
+  // Write 8 bits
+  #define tft_Write_8(C) TFT_WRITE_BITS(C, 8)
+
+  // Write 16 bits with corrected endianness for 16-bit colours
+  #define tft_Write_16(C) TFT_WRITE_BITS((C)<<8 | (C)>>8, 16)
+
+  // Future option for transfer without wait
+  #define tft_Write_16N(C) *_spi_mosi_dlen = 16-1;       \
+                           *_spi_w = ((C)<<8 | (C)>>8); \
+                           *_spi_cmd = SPI_USR;
 
   // Write 16 bits
   #define tft_Write_16S(C) TFT_WRITE_BITS(C, 16)
@@ -460,6 +569,11 @@
   // Write same value twice
   #define tft_Write_32D(C) TFT_WRITE_BITS((uint16_t)((C)<<8 | (C)>>8)<<16 | (uint16_t)((C)<<8 | (C)>>8), 32)
 
+//*/
+#endif
+
+#ifndef tft_Write_16N
+  #define tft_Write_16N tft_Write_16
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////
