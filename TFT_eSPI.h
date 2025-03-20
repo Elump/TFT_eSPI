@@ -305,17 +305,17 @@ const PROGMEM fontinfo fontdata [] = {
 // CL: check http://www.barth-dev.de/online/rgb565-color-picker/ for more
 #define TFT_BLACK       0x0000      /*   0,   0,   0 */
 #define TFT_NAVY        0x000F      /*   0,   0, 128 */
-#define TFT_DarkBLUE    0x298B
-#define TFT_DarkCYAN    0x03EF      /*   0, 128, 128 */
-#define TFT_DarkGREEN   0x03E0      /*   0, 128,   0 */
-#define TFT_DarkGREY    0x7BEF      /* 128, 128, 128 */
-#define TFT_DarkMAGENTA 0x612F
-#define TFT_DarkORANGE  0xA347
-#define TFT_DarkPINK    0xA1EF
-#define TFT_DarkRED     0x8986
-#define TFT_DarkerGREY  0x39C7
-#define TFT_DarkTURQUOISE   0x3491
-#define TFT_DarkYELLOW  0x83E5
+#define TFT_DARKBLUE    0x298B
+#define TFT_DARKCYAN    0x03EF      /*   0, 128, 128 */
+#define TFT_DARKGREEN   0x03E0      /*   0, 128,   0 */
+#define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
+#define TFT_DARKMAGENTA 0x612F
+#define TFT_DARKORANGE  0xA347
+#define TFT_DARKPINK    0xA1EF
+#define TFT_DARKRED     0x8986
+#define TFT_DARKerGREY  0x39C7
+#define TFT_DARKTURQUOISE   0x3491
+#define TFT_DARKYELLOW  0x83E5
 #define TFT_MAROON      0x7800      /* 128,   0,   0 */
 #define TFT_PURPLE      0x780F      /* 128,   0, 128 */
 #define TFT_OLIVE       0x7BE0      /* 128, 128,   0 */
@@ -360,12 +360,12 @@ static const uint16_t default_4bit_palette[] PROGMEM = {
   TFT_GREEN,    //  5  |
   TFT_BLUE,     //  6  |
   TFT_PURPLE,   //  7  |
-  TFT_DarkGREY, //  8  |
+  TFT_DARKGREY, //  8  |
   TFT_WHITE,    //  9  v
   TFT_CYAN,     // 10  Blue+green mix
   TFT_MAGENTA,  // 11  Blue+red mix
   TFT_MAROON,   // 12  Darker red colour
-  TFT_DarkGREEN,// 13  Darker green colour
+  TFT_DARKGREEN,// 13  Darker green colour
   TFT_NAVY,     // 14  Darker blue colour
   TFT_PINK      // 15
 };

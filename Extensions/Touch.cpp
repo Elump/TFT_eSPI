@@ -229,17 +229,17 @@ void TFT_eSPI::convertRawXY(uint16_t *x, uint16_t *y)
 void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t color_bg, uint8_t size){
   int16_t values[] = {0,0,0,0,0,0,0,0};
   uint16_t x_tmp, y_tmp;
-  uint16_t x_offset, y_offset;  //CL200930; added
+  uint16_t x_offset, y_offset;    // added: Offset for calibration points
 
-
+  // CL: counter for 4 corners + last loop to clear the calibration points
   for(uint8_t i = 0; i<=4; i++){
     //Clear all 4 arrow areas
-	  fillRect(size, size, size+1, size+1, color_bg);				    			         //up left
-    fillRect(size, _height-size-size, size+1, size+1, color_bg);				     //bot left
-    fillRect(_width-size-size, size, size+1, size+1, color_bg);					     //up right
-    fillRect(_width-size-size, _height-size-size, size+1, size+1, color_bg); //bot right
+	  fillRect(size/2, size/2, size+2, size+2, color_bg);				    			         //up left
+    fillRect(size/2, _height-size-size/2, size+2, size+2, color_bg);				     //bot left
+    fillRect(_width-size-size/2, size/2, size+2, size+2, color_bg);					     //up right
+    fillRect(_width-size-size/2, _height-size-size/2, size+2, size+2, color_bg); //bot right
 
-    if (i == 4) break; // used to clear the arrows
+    if (i == 4) break; // last loop used to clear the arrows
     
     switch (i) {
       case 0: // up left
@@ -247,42 +247,42 @@ void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t 
         //drawLine(0, 0, 0, size, color_fg);
         //drawLine(0, 0, size, 0, color_fg);
         //drawLine(0, 0, size , size, color_fg);
-        
+		
         //offset from corner
-        x_offset=size;
-        y_offset=size;
+        x_offset=size/2;
+        y_offset=size/2;
         break;
       case 1: // bot left
         //CL: alternativ arrow not target cross 
         //drawLine(0, _height-size-1, 0, _height-1, color_fg);
         //drawLine(0, _height-1, size, _height-1, color_fg);
         //drawLine(size, _height-size-1, 0, _height-1 , color_fg);
-        
+		
         //offset from corner
-        x_offset=size;
-        y_offset=_height-size-size;
+        x_offset=size/2;
+        y_offset=_height-size-size/2;
         break;
       case 2: // up right
         //CL: alternativ arrow not target cross 
         //drawLine(_width-size-1, 0, _width-1, 0, color_fg);
         //drawLine(_width-size-1, size, _width-1, 0, color_fg);
         //drawLine(_width-1, size, _width-1, 0, color_fg);
-        
+		
         //offset from corner
-        x_offset=_width-size-size;
-        y_offset=size;
+        x_offset=_width-size-size/2;
+        y_offset=size/2;
         break;
       case 3: // bot right
         //CL: alternativ arrow not target cross 
         //drawLine(_width-size-1, _height-size-1, _width-1, _height-1, color_fg);
         //drawLine(_width-1, _height-1-size, _width-1, _height-1, color_fg);
         //drawLine(_width-1-size, _height-1, _width-1, _height-1, color_fg);
-        
+		
         //offset from corner
-        x_offset=_width-size-size;
-        y_offset=_height-size-size;
+        x_offset=_width-size-size/2;
+        y_offset=_height-size-size/2;
         break;
-      }
+    }
     
     //CL: target cross with offset from corner
     drawLine(size/2+x_offset, y_offset, size/2+x_offset, size+y_offset, color_fg);  //vertical line
@@ -292,15 +292,17 @@ void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t 
     // user has to get the chance to release
     if(i>0) delay(1000);
 
+    // CL: get average of 8 samples
     for(uint8_t j= 0; j<8; j++){
-      //CL: Use a lower detect threshold ((Z_THRESHOLD/2) if sensing in corners tend to be less sensitive
+      //CL: no need to use a lower detect threshold ((Z_THRESHOLD/2) since sensing is not too close in corners
       while(!validTouch(&x_tmp, &y_tmp, Z_THRESHOLD));
-      values[i*2  ] += x_tmp;
-      values[i*2+1] += y_tmp;
+        values[i*2  ] += x_tmp;
+        values[i*2+1] += y_tmp;
       }
-    values[i*2  ] /= 8;
-    values[i*2+1] /= 8;
-    //CL: offset still needs compensation
+
+      values[i*2  ] /= 8;
+      values[i*2+1] /= 8;
+      //CL: offset still needs compensation
   }
 
 
@@ -336,19 +338,23 @@ void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t 
     touchCalibration_invert_y = true;
   }
   
-  // CL: compensat for offset od corner
+  // CL: compensat for clibration offset to real corners
+  //
   // real x0  measured x0      measured x1  real x1
   // |          |                    |          |
-  //(size+size/2)                     (size+size/2)
+  //(size/2+size/2)                 (size/2+size/2)
+  //
   // |                                          |
-  //               _width
+  //  ----- _width -----------------------------
   //            |                    |       
-  //              _width - 3* size
-  // measured x1 - measured x0 /_width - 3* size = touch_resolution per pixel
-  // offset = (size+size/2) * touch_resolution per pixel
-  // *8 for better resulution
-  x_offset = (touchCalibration_x1*8 - touchCalibration_x0*8)/(_width-3*size)*size*3/2;
-  y_offset = (touchCalibration_y1*8 - touchCalibration_y0*8)/(_height-3*size)*size*3/2; 
+  //              _width - 2* size
+  //
+  // measured x1 - measured x0 /_width - 2* size = touch_resolution per pixel
+  // offset = touch_resolution per pixel * (size/2+size/2)
+  //
+  // use times 8 just for better resulution
+  x_offset = (touchCalibration_x1 * 8 - (touchCalibration_x0 * 8)) / (_width  - (2 * size)) * size;
+  y_offset = (touchCalibration_y1 * 8 - (touchCalibration_y0 * 8)) / (_height - (2 * size)) * size; 
   touchCalibration_x0 -= (x_offset/8);
   touchCalibration_y0 -= (y_offset/8);
   touchCalibration_x1 += (x_offset/8);
@@ -358,6 +364,7 @@ void TFT_eSPI::calibrateTouch(uint16_t *parameters, uint32_t color_fg, uint32_t 
   touchCalibration_x1 -= touchCalibration_x0;
   touchCalibration_y1 -= touchCalibration_y0;
 
+  // avoid "0" values
   if(touchCalibration_x0 == 0) touchCalibration_x0 = 1;
   if(touchCalibration_x1 == 0) touchCalibration_x1 = 1;
   if(touchCalibration_y0 == 0) touchCalibration_y0 = 1;
