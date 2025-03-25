@@ -311,13 +311,13 @@ const PROGMEM fontinfo fontdata [] = {
 #define TFT_DARKBLUE    0x298B
 #define TFT_DARKCYAN    0x03EF      /*   0, 128, 128 */
 #define TFT_DARKGREEN   0x03E0      /*   0, 128,   0 */
+#define TFT_DARKERGREY  0x2124      /*  36,  36,  36 */
 //#define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
-#define TFT_DarkGREY    0x6B6D      /* 108, 108, 108 */
+#define TFT_DARKGREY    0x6B6D      /* 108, 108, 108 */
 #define TFT_DARKMAGENTA 0x612F
 #define TFT_DARKORANGE  0xA347
 #define TFT_DARKPINK    0xA1EF
 #define TFT_DARKRED     0x8986
-#define TFT_DarkerGREY  0x2124      /*  36,  36,  36 */
 #define TFT_DARKTURQUOISE   0x3491
 #define TFT_DARKYELLOW  0x83E5
 #define TFT_GREEN       0x07E0      /*   0, 255,   0 */
