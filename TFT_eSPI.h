@@ -303,46 +303,50 @@ const PROGMEM fontinfo fontdata [] = {
 ***************************************************************************************/
 // Default color definitions
 // CL: check http://www.barth-dev.de/online/rgb565-color-picker/ for more
+// CL: RGB color in hex in 5:6:5 format http://rinkydinkelectronics.com/calc_rgb565.php
 #define TFT_BLACK       0x0000      /*   0,   0,   0 */
-#define TFT_NAVY        0x000F      /*   0,   0, 128 */
+#define TFT_BLUE        0x001F      /*   0,   0, 255 */
+#define TFT_BROWN       0x9A60      /* 150,  75,   0 */
+#define TFT_CYAN        0x07FF      /*   0, 255, 255 */
 #define TFT_DARKBLUE    0x298B
 #define TFT_DARKCYAN    0x03EF      /*   0, 128, 128 */
 #define TFT_DARKGREEN   0x03E0      /*   0, 128,   0 */
-#define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
+//#define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
+#define TFT_DarkGREY    0x6B6D      /* 108, 108, 108 */
 #define TFT_DARKMAGENTA 0x612F
 #define TFT_DARKORANGE  0xA347
 #define TFT_DARKPINK    0xA1EF
 #define TFT_DARKRED     0x8986
-#define TFT_DARKerGREY  0x39C7
+#define TFT_DarkerGREY  0x2124      /*  36,  36,  36 */
 #define TFT_DARKTURQUOISE   0x3491
 #define TFT_DARKYELLOW  0x83E5
-#define TFT_MAROON      0x7800      /* 128,   0,   0 */
+#define TFT_GREEN       0x07E0      /*   0, 255,   0 */
+#define TFT_GREENYELLOW 0xB7E0      /* 180, 255,   0 */
+#define TFT_GREY        0xE73C      /* 192, 192, 192 */
+#define TFT_GOLD        0xFEA0      /* 255, 215,   0 */
 #define TFT_PURPLE      0x780F      /* 128,   0, 128 */
-#define TFT_OLIVE       0x7BE0      /* 128, 128,   0 */
 #define TFT_LIGHTGREY   0xD69A      /* 211, 211, 211 */
 #define TFT_LIGHTGREEN  0xA7D5
-#define TFT_DARKGREY    0x7BEF      /* 128, 128, 128 */
-#define TFT_BLUE        0x001F      /*   0,   0, 255 */
-#define TFT_GREEN       0x07E0      /*   0, 255,   0 */
-#define TFT_GREY        0xE73C
 #define TFT_L_BLUEGREY      0xBDF9
+#define TFT_MAGENTA     0xF81F      /* 255,   0, 255 */
+#define TFT_MAROON      0x7800      /* 128,   0,   0 */
+#define TFT_NAVY        0x000F      /*   0,   0, 128 */
+#define TFT_OLIVE       0x7BE0      /* 128, 128,   0 */
+#define TFT_ORANGE      0xFDA0      /* 255, 180,   0 */
+#define TFT_PINK        0xFE19      /* 255, 192, 203 */ //Lighter pink, was 0xFC9F
+#define TFT_PURPLE      0x780F      /* 128,   0, 128 */
 #define TFT_M_BLUEGREY      0x7BB2
 #define TFT_D_BLUEGREY      0x3188
 #define TFT_M_GREENGREY     0x73EE
-#define TFT_CYAN        0x07FF      /*   0, 255, 255 */
 #define TFT_RED         0xF800      /* 255,   0,   0 */
-#define TFT_MAGENTA     0xF81F      /* 255,   0, 255 */
-#define TFT_YELLOW      0xFFE0      /* 255, 255,   0 */
-#define TFT_WHITE       0xFFFF      /* 255, 255, 255 */
-#define TFT_ORANGE      0xFDA0      /* 255, 180,   0 */
-#define TFT_GREENYELLOW 0xB7E0      /* 180, 255,   0 */
-#define TFT_PINK        0xFE19      /* 255, 192, 203 */ //Lighter pink, was 0xFC9F
-#define TFT_BROWN       0x9A60      /* 150,  75,   0 */
-#define TFT_GOLD        0xFEA0      /* 255, 215,   0 */
+#define TFT_SALMON      0xFB2C      //  nice red
 #define TFT_SILVER      0xC618      /* 192, 192, 192 */
 #define TFT_SKYBLUE     0x867D      /* 135, 206, 235 */
+#define TFT_SKY         0x667F      // nice light blue
 #define TFT_TURQUOISE   0x0F1B
 #define TFT_VIOLET      0x915C      /* 180,  46, 226 */
+#define TFT_WHITE       0xFFFF      /* 255, 255, 255 */
+#define TFT_YELLOW      0xFFE0      /* 255, 255,   0 */
 #define TFT_SMOPS       0x37ED
 
 // Next is a special 16-bit colour value that encodes to 8 bits

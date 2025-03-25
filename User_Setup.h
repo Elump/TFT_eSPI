@@ -386,5 +386,4 @@
 
 // Transactions are automatically enabled by the library for an ESP32 (to use HAL mutex)
 // so changing it here has no effect
-
-// #define SUPPORT_TRANSACTIONS
+#define SUPPORT_TRANSACTIONS
