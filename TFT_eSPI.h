@@ -317,7 +317,8 @@ const PROGMEM fontinfo fontdata [] = {
 #define TFT_DARKMAGENTA 0x612F
 #define TFT_DARKORANGE  0xA347
 #define TFT_DARKPINK    0xA1EF
-#define TFT_DARKRED     0x8986
+#define TFT_DARKRED     0x8986      /* 140,  48,  55*/
+#define TFT_DARKERRED   0x60C3      /* 100,  25,  30*/
 #define TFT_DARKTURQUOISE   0x3491
 #define TFT_DARKYELLOW  0x83E5
 #define TFT_GREEN       0x07E0      /*   0, 255,   0 */
@@ -326,7 +327,8 @@ const PROGMEM fontinfo fontdata [] = {
 #define TFT_GOLD        0xFEA0      /* 255, 215,   0 */
 #define TFT_PURPLE      0x780F      /* 128,   0, 128 */
 #define TFT_LIGHTGREY   0xD69A      /* 211, 211, 211 */
-#define TFT_LIGHTGREEN  0xA7D5
+//#define TFT_LIGHTGREEN  0xA7D5      /* 160, 250, 165 */
+#define TFT_LIGHTGREEN  0x87F2      /* 130, 255, 145 */
 #define TFT_L_BLUEGREY      0xBDF9
 #define TFT_MAGENTA     0xF81F      /* 255,   0, 255 */
 #define TFT_MAROON      0x7800      /* 128,   0,   0 */
@@ -338,6 +340,7 @@ const PROGMEM fontinfo fontdata [] = {
 #define TFT_M_BLUEGREY      0x7BB2
 #define TFT_D_BLUEGREY      0x3188
 #define TFT_M_GREENGREY     0x73EE
+#define TFT_M_Gray      0xADB7      /* 170, 180, 190 */
 #define TFT_RED         0xF800      /* 255,   0,   0 */
 #define TFT_SALMON      0xFB2C      //  nice red
 #define TFT_SILVER      0xC618      /* 192, 192, 192 */
